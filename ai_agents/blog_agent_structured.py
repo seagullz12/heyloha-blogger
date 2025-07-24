@@ -2,6 +2,13 @@ from agents import Agent, function_tool
 from pydantic import BaseModel
 import re
 
+logging.basicConfig(
+    level=logging.INFO,
+    filename='blog_agent.log',  # Of een ander pad
+    filemode='a',  # 'a' = toevoegen, 'w' = overschrijven
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 class Article(BaseModel):
     title: str
     description: str

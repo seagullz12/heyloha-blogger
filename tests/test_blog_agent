@@ -1,0 +1,59 @@
+import asyncio
+from agents import Runner
+from ai_agents.blog_agent import blog_agent, Article
+
+async def test_blog_agent():
+    articles = [
+        Article(
+            title="AI verbetert klantcontact",
+            description="Nieuwe AI-tools helpen bedrijven klantvragen sneller te beantwoorden.",
+            source_name="Tech Today",
+            source_id="1",
+            published_at="2025-07-20",
+            url="https://techtoday.com/ai-klantcontact"
+        ),
+        Article(
+            title="Automatisering in klantenservice",
+            description="Automatisering verlaagt werkdruk en verhoogt klanttevredenheid.",
+            source_name="Business News",
+            source_id="2",
+            published_at="2025-07-19",
+            url="https://businessnews.com/automatisering-klantenservice"
+        ),
+    ]
+
+    previous_blogs = "Eerder geschreven blog over digitale klantenservice."
+    heyloha_info = "Heyloha helpt bedrijven klantcontact efficiënter te maken."
+
+    input_args = [
+        {"role": "system", "content": "Je bent een blogschrijver."},
+        {
+            "role": "user",
+            "content": (
+                "Schrijf een blog op basis van deze artikelen:\n\n" +
+                "\n".join(
+                    f"- {a.title}: {a.description} (Bron: {a.source_name})" 
+                    for a in articles
+                ) +
+                f"\n\nEerdere blogs: {previous_blogs}\n\nAchtergrond Heyloha: {heyloha_info}"
+            ),
+        },
+    ]
+
+    result = await Runner.run(
+        blog_agent,
+        input=input_args,
+        context={
+            "previous_blogs": previous_blogs,
+            "heyloha_info": heyloha_info,
+        }
+    )
+
+    if result.final_output:
+        print("Gegenereerde blogtekst:\n")
+        print(result.final_output.text)
+    else:
+        print("Geen output van blog_agent.")
+
+if __name__ == "__main__":
+    asyncio.run(test_blog_agent())

@@ -1,9 +1,11 @@
 from agents import Agent, function_tool
-from pydantic import BaseModel
 from typing import List
+from pydantic import BaseModel
+import httpx
 import os
-import requests
+import logging
 
+logger = logging.getLogger("agents")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 class Article(BaseModel):
@@ -15,52 +17,36 @@ class Article(BaseModel):
     url: str | None = None
 
 @function_tool
-def fetch_news(query: str = "technology") -> List[Article]:
-    """
-    Haalt recente nieuwsartikelen op via NewsAPI.org.
-
-    Args:
-        query (str): Zoekterm, standaard "technology".
-
-    Returns:
-        List[Article]: Lijst van artikelen met titel, samenvatting en metadata.
-    """
+async def fetch_news(query: str = "") -> List[Article]:
+    logger.info(f"Fetching news for query: {query}")
     url = "https://newsapi.org/v2/everything"
     params = {
         "q": query,
         "apiKey": NEWS_API_KEY,
         "language": "en",
         "pageSize": 5,
-        "sortBy": "relevancy",  # meest relevante eerst
+        "sortBy": "popularity",
+        "searchIn": "title,description,content"
     }
-    try:
-        response = requests.get(url, params=params, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        articles = []
-        for item in data.get("articles", []):
-            title = item.get("title", "").strip()
-            desc = item.get("description") or ""
-            source = item.get("source", {})
-            articles.append(Article(
-                title=title,
-                description=desc,
-                source_name=source.get("name"),
-                source_id=source.get("id"),
-                published_at=item.get("publishedAt"),
-                url=item.get("url"),
-            ))
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        articles = [Article(
+            title=item.get("title", "").strip(),
+            description=item.get("content") or item.get("description") or "",
+            source_name=item.get("source", {}).get("name"),
+            source_id=item.get("source", {}).get("id"),
+            published_at=item.get("publishedAt"),
+            url=item.get("url"),
+        ) for item in data.get("articles", [])]
+        for a in articles:
+                logger.info(f"Article: {a.title} | URL: {a.url} | Bron: {a.source_name} | Published: {a.published_at}")
         return articles
-    except requests.RequestException as e:
-        print(f"Error fetching news: {e}")
-        return []
 
 news_agent = Agent(
     name="NewsAgent",
-    instructions=(
-        "Haal maximaal 5 relevante, recente Engelstalige nieuwsartikelen op over het onderwerp dat wordt opgegeven. "
-        "Retourneer een lijst van artikelen met titel, korte samenvatting en broninformatie."
-    ),
+    instructions="Haal maximaal 5 relevante, recente Engelstalige nieuwsartikelen op over het onderwerp.",
     model="gpt-4o-mini",
     tools=[fetch_news],
     output_type=List[Article],
